@@ -51,8 +51,9 @@ public class FlinkActionITCase extends CatalogITCaseBase {
                 BlockingIterator.of(sEnv.executeSql("SELECT * FROM T").collect());
 
         action.run();
-
-        assertThat(iterator.collect(4))
+        List<Row> rows = iterator.collect(4);
+        rows.forEach(e->log.info(e.toString()));
+        assertThat(rows)
                 .containsExactlyInAnyOrder(
                         changelogRow("+I", 1, "Hi"),
                         changelogRow("+I", 2, "Hello"),
@@ -60,4 +61,5 @@ public class FlinkActionITCase extends CatalogITCaseBase {
                         changelogRow("-D", 1, "Hi"));
         iterator.close();
     }
+
 }

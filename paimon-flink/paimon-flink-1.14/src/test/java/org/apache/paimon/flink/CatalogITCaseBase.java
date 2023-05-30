@@ -23,6 +23,8 @@ import org.apache.paimon.fs.Path;
 import org.apache.paimon.fs.local.LocalFileIO;
 import org.apache.paimon.utils.SnapshotManager;
 
+import org.apache.flink.configuration.Configuration;
+import org.apache.flink.runtime.testutils.MiniClusterResourceConfiguration;
 import org.apache.flink.shaded.guava30.com.google.common.collect.ImmutableList;
 import org.apache.flink.table.api.EnvironmentSettings;
 import org.apache.flink.table.api.TableEnvironment;
@@ -37,9 +39,12 @@ import org.apache.flink.table.delegation.Parser;
 import org.apache.flink.table.operations.Operation;
 import org.apache.flink.table.operations.ddl.CreateCatalogOperation;
 import org.apache.flink.test.util.AbstractTestBase;
+import org.apache.flink.test.util.MiniClusterWithClientResource;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.CloseableIterator;
 import org.junit.Before;
+import org.junit.ClassRule;
+import org.junit.jupiter.api.BeforeAll;
 
 import javax.annotation.Nullable;
 
@@ -49,14 +54,30 @@ import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 
+import static org.apache.flink.configuration.HeartbeatManagerOptions.HEARTBEAT_TIMEOUT;
 import static org.apache.flink.streaming.api.environment.ExecutionCheckpointingOptions.CHECKPOINTING_INTERVAL;
+import static org.apache.flink.streaming.api.environment.ExecutionCheckpointingOptions.CHECKPOINTING_TIMEOUT;
 
 /** ITCase for catalog. */
 public abstract class CatalogITCaseBase extends AbstractTestBase {
+    private static final int DEFAULT_PARALLELISM = 4;
 
+    @ClassRule
+    public static MiniClusterWithClientResource miniClusterResource =
+            new MiniClusterWithClientResource(
+                    new MiniClusterResourceConfiguration.Builder()
+                            .setNumberTaskManagers(1)
+                            .setNumberSlotsPerTaskManager(DEFAULT_PARALLELISM)
+                            .setConfiguration(new Configuration().set(CHECKPOINTING_INTERVAL, Duration.ofMillis(100))
+                                    .set(HEARTBEAT_TIMEOUT,(long) Integer.MAX_VALUE)
+                                    .set(CHECKPOINTING_TIMEOUT,Duration.ofMinutes(5000)))
+                            .build());
     protected TableEnvironment tEnv;
     protected TableEnvironment sEnv;
     protected String path;
+    @BeforeAll
+    public static void init(){
+    }
 
     @Before
     public void before() throws IOException {
@@ -70,7 +91,12 @@ public abstract class CatalogITCaseBase extends AbstractTestBase {
         tEnv.useCatalog(catalog);
 
         sEnv = TableEnvironment.create(EnvironmentSettings.newInstance().inStreamingMode().build());
-        sEnv.getConfig().getConfiguration().set(CHECKPOINTING_INTERVAL, Duration.ofMillis(100));
+        tEnv.getConfig().getConfiguration()
+        ;
+        sEnv.getConfig().getConfiguration().set(CHECKPOINTING_INTERVAL, Duration.ofMillis(100))
+                .set(HEARTBEAT_TIMEOUT,(long) Integer.MAX_VALUE)
+                .set(CHECKPOINTING_TIMEOUT,Duration.ofMinutes(5000))
+        ;
         sEnv.registerCatalog(catalog, tEnv.getCatalog(catalog).get());
         sEnv.useCatalog(catalog);
 
